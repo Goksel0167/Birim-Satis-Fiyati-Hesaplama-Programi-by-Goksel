@@ -170,6 +170,10 @@ def fetch_today_rates():
     return fetch_rates_with_fallback(datetime.now().date())
 
 
+def fetch_rates_for_date(target_date):
+    return fetch_rates_with_fallback(target_date)
+
+
 def calculate_payload(payload):
     nts_cost = float(payload["nts_cost"])
     margin = float(payload["margin"])
@@ -509,7 +513,7 @@ def main():
     with top_left:
         st.write(f"Kayit limiti: **{MAX_RECORDS}**")
     with top_right:
-        if st.button("TCMB Kurlarini Getir", width="stretch"):
+        if st.button("Bugunun Kurlarini Getir", width="stretch"):
             rates = fetch_today_rates()
             if rates:
                 st.session_state.rates = rates
@@ -542,17 +546,19 @@ def main():
         submitted = st.form_submit_button("Kaydet ve Hesapla", width="stretch")
 
     if submitted:
-        if usd_rate <= 0 or eur_rate <= 0 or chf_rate <= 0:
-            st.error("Lutfen tum doviz kurlarini 0'dan buyuk girin.")
+        date_rates = fetch_rates_for_date(calculation_date)
+        if not date_rates:
+            st.error("Secilen hesaplama tarihi icin TCMB kuru bulunamadi.")
         else:
+            st.session_state.rates = date_rates
             payload = {
                 "product_name": product_name.strip(),
                 "dealer": dealer.strip(),
                 "dealer_customer": dealer_customer.strip(),
                 "calculation_date": calculation_date.strftime("%d-%m-%Y"),
-                "usd_rate": usd_rate,
-                "eur_rate": eur_rate,
-                "chf_rate": chf_rate,
+                "usd_rate": float(date_rates["usd"]),
+                "eur_rate": float(date_rates["eur"]),
+                "chf_rate": float(date_rates["chf"]),
                 "factory": factory,
                 "shipping_city": shipping_city.strip(),
                 "shipping_cost": shipping_cost,
@@ -560,7 +566,10 @@ def main():
                 "margin": margin_pct / 100.0,
             }
             created = save_calculation(payload)
-            st.success("Hesaplama kaydedildi.")
+            st.success("Hesaplama, secilen tarihin TCMB kurlari ile kaydedildi.")
+            st.caption(
+                f"Kullanilan kurlar -> USD: {date_rates['usd']:.4f} | EUR: {date_rates['eur']:.4f} | CHF: {date_rates['chf']:.4f}"
+            )
             render_result_card(created)
 
     st.divider()
