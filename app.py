@@ -25,6 +25,17 @@ FACTORIES = {
     "gebze": "Gebze",
 }
 
+CITIES = [
+    "Adana", "Adiyaman", "Afyonkarahisar", "Agri", "Amasya", "Ankara", "Antalya", "Artvin", "Aydin",
+    "Balikesir", "Bilecik", "Bingol", "Bitlis", "Bolu", "Burdur", "Bursa", "Canakkale", "Cankiri",
+    "Corum", "Denizli", "Diyarbakir", "Duzce", "Edirne", "Elazig", "Erzincan", "Erzurum", "Eskisehir",
+    "Gaziantep", "Giresun", "Gumushane", "Hakkari", "Hatay", "Igdir", "Isparta", "Istanbul", "Izmir",
+    "Kahramanmaras", "Karabuk", "Karaman", "Kars", "Kastamonu", "Kayseri", "Kilis", "Kirikkale", "Kirklareli",
+    "Kirsehir", "Kocaeli", "Konya", "Kutahya", "Malatya", "Manisa", "Mardin", "Mersin", "Mugla", "Mus",
+    "Nevsehir", "Nigde", "Ordu", "Osmaniye", "Rize", "Sakarya", "Samsun", "Sanliurfa", "Siirt", "Sinop",
+    "Sirnak", "Sivas", "Tekirdag", "Tokat", "Trabzon", "Tunceli", "Usak", "Van", "Yalova", "Yozgat", "Zonguldak",
+]
+
 PDF_FONT_CANDIDATES = [
     "C:/Windows/Fonts/arial.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -532,9 +543,13 @@ def main():
             factory = st.selectbox("Sevk Fabrikasi", options=list(FACTORIES.keys()), format_func=lambda x: FACTORIES[x])
         with col2:
             calculation_date = st.date_input("Hesaplama Tarihi", value=date.today(), format="DD.MM.YYYY")
-            shipping_city = st.text_input("Nakliye Sehri")
+            shipping_city = st.selectbox("Nakliye Sehri", options=CITIES, index=CITIES.index("Istanbul"))
+            shipping_district = st.text_input("Ilce / Teslim Lokasyonu (opsiyonel)")
             nts_cost = st.number_input("NTS Maliyeti (TL/kg)", min_value=0.0, value=0.0, step=0.01)
-            shipping_cost = st.number_input("Nakliye Bedeli (TL/kg)", min_value=0.0, value=0.0, step=0.01)
+            city_shipping_cost = st.number_input("Sehir Nakliye Bedeli (TL/kg)", min_value=0.0, value=0.0, step=0.01)
+            district_surcharge = st.number_input("Ilce/Lokasyon Fark Bedeli (TL/kg)", min_value=0.0, value=0.0, step=0.01)
+            shipping_cost = city_shipping_cost + district_surcharge
+            st.caption(f"Toplam Nakliye: {shipping_cost:.2f} TL/kg")
         with col3:
             margin_pct = st.slider("Hedeflenen Marj (%)", min_value=50, max_value=100, value=70)
             usd_rate = st.number_input("USD Kur", min_value=0.0, value=float(rates.get("usd", 0.0)), step=0.0001, format="%.4f")
@@ -560,7 +575,7 @@ def main():
                 "eur_rate": float(date_rates["eur"]),
                 "chf_rate": float(date_rates["chf"]),
                 "factory": factory,
-                "shipping_city": shipping_city.strip(),
+                "shipping_city": f"{shipping_city} / {shipping_district.strip()}" if shipping_district.strip() else shipping_city,
                 "shipping_cost": shipping_cost,
                 "nts_cost": nts_cost,
                 "margin": margin_pct / 100.0,
