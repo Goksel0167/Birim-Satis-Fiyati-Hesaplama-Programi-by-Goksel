@@ -3,7 +3,6 @@
 import csv
 import os
 import sqlite3
-import uuid
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta
 from io import BytesIO, StringIO
@@ -25,6 +24,12 @@ FACTORIES = {
     "trabzon": "Trabzon",
     "gebze": "Gebze",
 }
+
+PDF_FONT_CANDIDATES = [
+    "C:/Windows/Fonts/arial.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+]
 
 
 def get_db():
@@ -95,6 +100,18 @@ def delete_calculation(calc_id):
     conn.execute("DELETE FROM calculations WHERE id = ?", (calc_id,))
     conn.commit()
     conn.close()
+
+
+def get_next_id(conn):
+    row = conn.execute(
+        """
+        SELECT COALESCE(MAX(CAST(SUBSTR(id, 4) AS INTEGER)), 0)
+        FROM calculations
+        WHERE id GLOB 'ID_[0-9]*'
+        """
+    ).fetchone()
+    next_no = int(row[0]) + 1
+    return f"ID_{next_no:03d}"
 
 
 def parse_tcmb_xml(xml_text):
@@ -183,11 +200,10 @@ def calculate_payload(payload):
 
 
 def save_calculation(payload):
-    calc_id = str(uuid.uuid4())
+    conn = get_db()
+    calc_id = get_next_id(conn)
     created_at = datetime.now().isoformat()
     results = calculate_payload(payload)
-
-    conn = get_db()
     conn.execute(
         """
         INSERT INTO calculations (
@@ -231,6 +247,111 @@ def save_calculation(payload):
     row = conn.execute("SELECT * FROM calculations WHERE id = ?", (calc_id,)).fetchone()
     conn.close()
     return dict(row)
+
+
+def register_pdf_font():
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    font_name = "Helvetica"
+    font_path = None
+    for path in PDF_FONT_CANDIDATES:
+        if not os.path.exists(path):
+            continue
+        try:
+            if "AppUnicode" not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(TTFont("AppUnicode", path))
+            font_name = "AppUnicode"
+            font_path = path
+            break
+        except Exception:
+            continue
+
+    return font_name, font_path
+
+
+def to_pdf_bytes(calculations):
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    font_name, font_path = register_pdf_font()
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=8 * mm,
+        rightMargin=8 * mm,
+        topMargin=8 * mm,
+        bottomMargin=8 * mm,
+    )
+
+    title_style = ParagraphStyle("title", fontName=font_name, fontSize=13, textColor=colors.HexColor("#1F4E79"))
+    cell_style = ParagraphStyle("cell", fontName=font_name, fontSize=7, leading=9)
+
+    elements = []
+    now_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+    elements.append(Paragraph("Birim Satis Fiyati Hesaplama Gecmisi", title_style))
+    elements.append(Paragraph(f"Olusturulma: {now_str} | Toplam: {len(calculations)}", cell_style))
+    elements.append(Spacer(1, 4 * mm))
+
+    headers = [
+        "ID",
+        "Tarih",
+        "Urun",
+        "Bayi",
+        "Fabrika",
+        "Sehir",
+        "TL/kg",
+        "USD/kg",
+        "EUR/kg",
+        "CHF/kg",
+        "TL/ton",
+    ]
+
+    table_rows = [[Paragraph(h, cell_style) for h in headers]]
+    for c in calculations:
+        table_rows.append(
+            [
+                Paragraph(str(c.get("id", "")), cell_style),
+                Paragraph(str(c.get("created_at", "")[:16].replace("T", " ")), cell_style),
+                Paragraph(str(c.get("product_name", "")), cell_style),
+                Paragraph(str(c.get("dealer", "")), cell_style),
+                Paragraph(str(FACTORIES.get(c.get("factory", ""), c.get("factory", ""))), cell_style),
+                Paragraph(str(c.get("shipping_city", "")), cell_style),
+                Paragraph(f"{c.get('result_tl', 0):.2f}", cell_style),
+                Paragraph(f"{c.get('result_usd', 0):.4f}", cell_style),
+                Paragraph(f"{c.get('result_eur', 0):.4f}", cell_style),
+                Paragraph(f"{c.get('result_chf', 0):.4f}", cell_style),
+                Paragraph(f"{c.get('result_tl_ton', 0):.2f}", cell_style),
+            ]
+        )
+
+    table = Table(
+        table_rows,
+        colWidths=[16 * mm, 24 * mm, 34 * mm, 26 * mm, 16 * mm, 24 * mm, 16 * mm, 16 * mm, 16 * mm, 16 * mm, 18 * mm],
+        repeatRows=1,
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F4E79")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#D0D7DE")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F7FAFC")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ]
+        )
+    )
+    elements.append(table)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.getvalue(), font_path
 
 
 def to_excel_bytes(calculations):
@@ -388,7 +509,7 @@ def main():
     with top_left:
         st.write(f"Kayit limiti: **{MAX_RECORDS}**")
     with top_right:
-        if st.button("TCMB Kurlarini Getir", use_container_width=True):
+        if st.button("TCMB Kurlarini Getir", width="stretch"):
             rates = fetch_today_rates()
             if rates:
                 st.session_state.rates = rates
@@ -418,7 +539,7 @@ def main():
             if rates.get("date"):
                 st.caption(f"TCMB tarih: {rates['date']}")
 
-        submitted = st.form_submit_button("Kaydet ve Hesapla", use_container_width=True)
+        submitted = st.form_submit_button("Kaydet ve Hesapla", width="stretch")
 
     if submitted:
         if usd_rate <= 0 or eur_rate <= 0 or chf_rate <= 0:
@@ -452,7 +573,7 @@ def main():
 
     st.dataframe(
         calculations,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={
             "margin": st.column_config.NumberColumn("marj", format="%.2f"),
@@ -471,7 +592,7 @@ def main():
     with col_a:
         selected_id = st.selectbox("Silinecek kayit", options=ids)
     with col_b:
-        if st.button("Kaydi Sil", type="secondary", use_container_width=True):
+        if st.button("Kaydi Sil", type="secondary", width="stretch"):
             delete_calculation(selected_id)
             st.rerun()
     with col_c:
@@ -479,15 +600,19 @@ def main():
 
     csv_bytes = to_csv_bytes(calculations)
     excel_bytes = to_excel_bytes(calculations)
+    pdf_bytes, pdf_font_path = to_pdf_bytes(calculations)
 
-    dl1, dl2 = st.columns(2)
+    if pdf_font_path is None:
+        st.warning("PDF icin Unicode font bulunamadi; bazi Turkce karakterler bozuk gorunebilir.")
+
+    dl1, dl2, dl3 = st.columns(3)
     with dl1:
         st.download_button(
             "CSV Indir",
             data=csv_bytes,
             file_name=f"hesaplamalar_{datetime.now().strftime('%Y-%m-%d')}.csv",
             mime="text/csv",
-            use_container_width=True,
+            width="stretch",
         )
     with dl2:
         st.download_button(
@@ -495,7 +620,15 @@ def main():
             data=excel_bytes,
             file_name=f"hesaplamalar_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
+            width="stretch",
+        )
+    with dl3:
+        st.download_button(
+            "PDF Indir",
+            data=pdf_bytes,
+            file_name=f"hesaplamalar_{datetime.now().strftime('%Y-%m-%d')}.pdf",
+            mime="application/pdf",
+            width="stretch",
         )
 
 

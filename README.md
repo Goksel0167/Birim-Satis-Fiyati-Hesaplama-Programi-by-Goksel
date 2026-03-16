@@ -50,6 +50,8 @@ streamlit run app.py
 
 Tarayıcıda [http://localhost:5000](http://localhost:5000) adresini açın.
 
+Not: Streamlit lokal varsayılan portu genelde `8501` olur.
+
 ## GitHub'a Push
 
 ```bash
@@ -61,6 +63,19 @@ git push -u origin main
 ```
 
 ## Deploy (Kolay Yol: Render / Railway)
+
+### Streamlit Community Cloud (En Kolay)
+1. [share.streamlit.io](https://share.streamlit.io) adresine GitHub hesabınızla girin.
+2. "New app" butonuna basın.
+3. Repository: bu projeyi seçin.
+4. Branch: `main`, Main file path: `app.py` seçin.
+5. Advanced settings -> Secrets kısmına ekleyin:
+	- `MAX_RECORDS="500"`
+	- `DATABASE_PATH="/mount/src/data/calculations.db"`
+6. Deploy edin.
+
+Not: Streamlit Community Cloud ortamı kalıcı disk garantisi vermez; restart/redeploy sonrası SQLite verisi sıfırlanabilir.
+Gerçek kalıcı kayıt için Render/Railway persistent disk veya harici PostgreSQL kullanın.
 
 ### Render (Docker)
 1. [render.com](https://render.com) adresinde "New Web Service" oluşturun.
