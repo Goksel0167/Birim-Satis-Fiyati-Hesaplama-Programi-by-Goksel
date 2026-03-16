@@ -60,25 +60,31 @@ git remote add origin https://github.com/KULLANICI_ADI/birim-fiyat-hesaplayici.g
 git push -u origin main
 ```
 
-## Deploy (7/24 Çalışma)
+## Deploy (Kolay Yol: Render / Railway)
 
-### Railway
-1. [railway.app](https://railway.app) adresine GitHub ile giriş yapın
-2. "New Project" → "Deploy from GitHub repo" seçin
-3. Bu repository'yi seçin
-4. Otomatik deploy edilecektir (Dockerfile algılanır)
+### Render (Docker)
+1. [render.com](https://render.com) adresinde "New Web Service" oluşturun.
+2. GitHub repository olarak bu projeyi seçin.
+3. Runtime olarak `Docker` seçin (Dockerfile otomatik algılanır).
+4. Environment variables ekleyin:
+	- `MAX_RECORDS=500`
+	- `DATABASE_PATH=/opt/render/project/src/data/calculations.db`
+	- `SECRET_KEY=<guclu-bir-key>`
+5. Deploy başlatın ve uygulamayı açın.
 
-### Render
-1. [render.com](https://render.com) adresine GitHub ile giriş yapın
-2. "New Web Service" → GitHub repo seçin
-3. Runtime: Docker
-4. Otomatik deploy edilecektir
+### Railway (Docker)
+1. [railway.app](https://railway.app) adresinde "New Project" -> "Deploy from GitHub repo" seçin.
+2. Bu repository'yi seçin.
+3. Service Variables bölümüne şunları ekleyin:
+	- `MAX_RECORDS=500`
+	- `DATABASE_PATH=/app/data/calculations.db`
+	- `SECRET_KEY=<guclu-bir-key>`
+4. Deploy sonrası verilen URL ile erişin.
 
-### Koyeb
-1. [koyeb.com](https://koyeb.com) adresine giriş yapın
-2. "Create App" → GitHub repo seçin
-3. Builder: Dockerfile
-4. Port: 5000
+### Not: Kayıtların Kalıcılığı
+- Projede 500 kayıt limiti korunur, bu limit framework'ten bağımsızdır.
+- Free planlarda bazı platformlarda disk kalıcı olmayabilir; bu durumda yeniden deploy/restart sonrası SQLite sıfırlanabilir.
+- Kalıcı kayıt için persistent disk/volume veya harici veritabanı (PostgreSQL gibi) kullanın.
 
 ## Ortam Değişkenleri (Opsiyonel)
 
