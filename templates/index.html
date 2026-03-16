@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birim Satış Fiyatı Hesaplayıcı</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <header class="header">
+            <div class="header-content">
+                <div class="header-icon">📊</div>
+                <div>
+                    <h1>Birim Satış Fiyatı Hesaplayıcı</h1>
+                    <p class="header-sub">TCMB döviz kurları ile otomatik hesaplama</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- EXCHANGE RATES BAR -->
+        <div class="rates-bar" id="ratesBar">
+            <div class="rates-label">
+                <span class="rates-icon">💱</span>
+                <span>TCMB Satış Kurları</span>
+                <span class="rates-date" id="ratesDate"></span>
+            </div>
+            <div class="rates-values">
+                <span class="rate-chip"><b>USD</b> <span id="rateUsd">—</span></span>
+                <span class="rate-chip"><b>EUR</b> <span id="rateEur">—</span></span>
+                <span class="rate-chip"><b>CHF</b> <span id="rateChf">—</span></span>
+            </div>
+            <button class="btn-icon" id="refreshRates" title="Kurları Yenile">🔄</button>
+        </div>
+
+        <!-- MAIN GRID -->
+        <div class="main-grid">
+            <!-- LEFT: FORM -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>📋 Hesaplama Formu</h2>
+                </div>
+                <div class="card-body">
+                    <form id="calcForm">
+                        <!-- Product Info -->
+                        <div class="form-section-title">Ürün ve Müşteri Bilgileri</div>
+                        <div class="form-group">
+                            <label for="productName">Ürün İsmi</label>
+                            <input type="text" id="productName" required placeholder="Ürün adını girin">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="dealer">Bayi</label>
+                                <input type="text" id="dealer" required placeholder="Bayi adı">
+                            </div>
+                            <div class="form-group">
+                                <label for="dealerCustomer">Bayi Müşteri</label>
+                                <input type="text" id="dealerCustomer" required placeholder="Müşteri adı">
+                            </div>
+                        </div>
+
+                        <!-- Date & Factory -->
+                        <div class="form-section-title">Tarih ve Fabrika</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="calcDate">Hesaplama Tarihi</label>
+                                <input type="date" id="calcDate" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="factory">Sevk Fabrikası</label>
+                                <select id="factory" required>
+                                    <option value="">Fabrika seçin</option>
+                                    <option value="adana">Adana</option>
+                                    <option value="trabzon">Trabzon</option>
+                                    <option value="gebze">Gebze</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Shipping -->
+                        <div class="form-section-title">Nakliye Bilgileri</div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="shippingCity">Nakliye Varış Şehri</label>
+                                <select id="shippingCity" required>
+                                    <option value="">Şehir seçin</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="shippingCost">Nakliye (TL/kg)</label>
+                                <input type="number" id="shippingCost" step="0.01" min="0" required placeholder="0.00">
+                            </div>
+                        </div>
+                        <div class="shipping-usd-display" id="shippingUsdDisplay" style="display:none;">
+                            Nakliye: <b id="shippingUsdValue">0.0000</b> USD/kg
+                        </div>
+
+                        <!-- Exchange Rates Override -->
+                        <div class="form-section-title">
+                            Döviz Kurları
+                            <span class="form-section-hint">(TCMB'den otomatik gelir, değiştirebilirsiniz)</span>
+                        </div>
+                        <div class="form-row three-col">
+                            <div class="form-group">
+                                <label for="usdRate">USD Satış</label>
+                                <input type="number" id="usdRate" step="0.0001" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="eurRate">EUR Satış</label>
+                                <input type="number" id="eurRate" step="0.0001" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="chfRate">CHF Satış</label>
+                                <input type="number" id="chfRate" step="0.0001" min="0" required>
+                            </div>
+                        </div>
+
+                        <!-- Cost & Margin -->
+                        <div class="form-section-title">Maliyet ve Marj</div>
+                        <div class="form-group">
+                            <label for="ntsCost">NTS Maliyeti (TL/kg)</label>
+                            <input type="number" id="ntsCost" step="0.01" min="0" required placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="marginSlider">
+                                Marj: <span id="marginDisplay" class="margin-badge">%70</span>
+                            </label>
+                            <input type="range" id="marginSlider" min="50" max="100" value="70" step="1">
+                            <div class="slider-labels">
+                                <span>%50</span>
+                                <span>%100</span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-full">
+                            🧮 Hesapla
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- RIGHT: RESULTS -->
+            <div class="right-panel">
+                <!-- Result Card -->
+                <div class="card result-card" id="resultCard" style="display:none;">
+                    <div class="card-header result-header">
+                        <h2>📊 Hesaplama Sonucu</h2>
+                        <div class="result-actions">
+                            <button class="btn btn-sm btn-outline" id="exportSinglePdf" title="PDF İndir">📄 PDF</button>
+                            <button class="btn btn-sm btn-outline" id="exportSingleExcel" title="Excel İndir">📗 Excel</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Tabs for kg/ton -->
+                        <div class="tabs">
+                            <button class="tab active" data-tab="kg">⚖️ KG Bazında</button>
+                            <button class="tab" data-tab="ton">🏋️ TON Bazında</button>
+                        </div>
+
+                        <!-- KG Results -->
+                        <div class="tab-content active" id="tabKg">
+                            <div class="result-main">
+                                <div class="result-main-value" id="resultTL">—</div>
+                                <div class="result-main-label">TL/kg</div>
+                            </div>
+                            <div class="result-grid">
+                                <div class="result-item">
+                                    <div class="result-item-label">USD/kg</div>
+                                    <div class="result-item-value" id="resultUSD">—</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-item-label">EUR/kg</div>
+                                    <div class="result-item-value" id="resultEUR">—</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-item-label">CHF/kg</div>
+                                    <div class="result-item-value" id="resultCHF">—</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TON Results -->
+                        <div class="tab-content" id="tabTon">
+                            <div class="result-main">
+                                <div class="result-main-value" id="resultTLTon">—</div>
+                                <div class="result-main-label">TL/ton</div>
+                            </div>
+                            <div class="result-grid">
+                                <div class="result-item">
+                                    <div class="result-item-label">USD/ton</div>
+                                    <div class="result-item-value" id="resultUSDTon">—</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-item-label">EUR/ton</div>
+                                    <div class="result-item-value" id="resultEURTon">—</div>
+                                </div>
+                                <div class="result-item">
+                                    <div class="result-item-label">CHF/ton</div>
+                                    <div class="result-item-value" id="resultCHFTon">—</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Calculation Detail -->
+                        <div class="result-detail" id="resultDetail" style="display:none;">
+                            <div class="detail-row">
+                                <span>Ürün</span>
+                                <span id="detailProduct">—</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Bayi / Müşteri</span>
+                                <span id="detailDealer">—</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Fabrika</span>
+                                <span id="detailFactory">—</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Nakliye Şehri</span>
+                                <span id="detailCity">—</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Nakliye (TL/kg)</span>
+                                <span id="detailShippingTL">—</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Nakliye (USD/kg)</span>
+                                <span id="detailShippingUSD">—</span>
+                            </div>
+                            <div class="detail-row">
+                                <span>Formül</span>
+                                <span id="detailFormula">—</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HISTORY -->
+        <div class="card history-card">
+            <div class="card-header" id="historyToggle">
+                <h2>📜 Hesaplama Geçmişi <span class="badge" id="historyCount">0</span></h2>
+                <div class="history-actions">
+                    <button class="btn btn-sm btn-outline" id="exportAllPdf" style="display:none;">📄 Tümünü PDF</button>
+                    <button class="btn btn-sm btn-outline" id="exportAllExcel" style="display:none;">📗 Tümünü Excel</button>
+                    <button class="btn btn-sm btn-ghost" id="toggleHistoryBtn">▼ Aç</button>
+                </div>
+            </div>
+            <div class="card-body history-body" id="historyBody" style="display:none;">
+                <div class="history-tabs">
+                    <button class="tab active" data-htab="kg">KG Bazında</button>
+                    <button class="tab" data-htab="ton">TON Bazında</button>
+                </div>
+                <div class="table-container">
+                    <table id="historyTable">
+                        <thead>
+                            <tr id="historyHeader">
+                                <!-- Filled by JS -->
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <!-- Filled by JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="history-empty" id="historyEmpty" style="display:none;">
+                    Henüz hesaplama yapılmamış.
+                </div>
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <footer class="footer">
+            Birim Satış Fiyatı Hesaplayıcı — TCMB döviz kurları ile otomatik hesaplama
+        </footer>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
