@@ -45,7 +45,7 @@ pip install -r requirements.txt
 ### 4. Uygulamayı çalıştırın
 
 ```bash
-python app.py
+streamlit run app.py
 ```
 
 Tarayıcıda [http://localhost:5000](http://localhost:5000) adresini açın.
@@ -90,18 +90,14 @@ git push -u origin main
 
 | Değişken | Varsayılan | Açıklama |
 |----------|-----------|----------|
-| `PORT` | `5000` | Uygulama portu |
-| `SECRET_KEY` | (otomatik) | Flask secret key |
-| `FLASK_DEBUG` | `false` | Debug modu |
+| `PORT` | `5000` | Streamlit portu |
+| `SECRET_KEY` | (opsiyonel) | Uygulama gizli anahtarı |
 | `DATABASE_PATH` | `data/calculations.db` | SQLite dosya yolu (kalıcı disk mount noktası önerilir) |
 | `MAX_RECORDS` | `500` | Maksimum saklanan hesaplama sayısı |
 
 ## Teknik Detaylar
 
-- **Backend**: Python / Flask
-- **Frontend**: Vanilla HTML/CSS/JS
+- **Uygulama**: Python / Streamlit
 - **Veritabanı**: SQLite (dosya tabanlı, deploy'da persistent volume gerekir)
 - **Döviz API**: TCMB XML API
-- **PDF**: ReportLab
 - **Excel**: OpenPyXL
-- **Production**: Gunicorn
