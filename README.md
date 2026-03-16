@@ -87,6 +87,8 @@ git push -u origin main
 | `PORT` | `5000` | Uygulama portu |
 | `SECRET_KEY` | (otomatik) | Flask secret key |
 | `FLASK_DEBUG` | `false` | Debug modu |
+| `DATABASE_PATH` | `data/calculations.db` | SQLite dosya yolu (kalıcı disk mount noktası önerilir) |
+| `MAX_RECORDS` | `500` | Maksimum saklanan hesaplama sayısı |
 
 ## Teknik Detaylar
 

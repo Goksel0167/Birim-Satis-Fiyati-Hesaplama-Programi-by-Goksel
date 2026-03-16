@@ -19,8 +19,13 @@ from flask import Flask, render_template, request, jsonify, send_file
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'birim-fiyat-hesaplayici-secret')
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'calculations.db')
-MAX_RECORDS = 500
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.environ.get('DATABASE_PATH', os.path.join(BASE_DIR, 'data', 'calculations.db'))
+
+try:
+    MAX_RECORDS = max(1, int(os.environ.get('MAX_RECORDS', '500')))
+except ValueError:
+    MAX_RECORDS = 500
 
 # ─── DATABASE ──────────────────────────────────────────────────────
 
