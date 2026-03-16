@@ -19,6 +19,9 @@ try:
 except ValueError:
     MAX_RECORDS = 500
 
+MAX_HISTORY_DAYS = 365
+MAX_RATE_FALLBACK_DAYS = 10
+
 FACTORIES = {
     "adana": "Adana",
     "trabzon": "Trabzon",
@@ -182,7 +185,7 @@ def fetch_today_rates():
 
 
 def fetch_rates_for_date(target_date):
-    return fetch_rates_with_fallback(target_date)
+    return fetch_rates_with_fallback(target_date, max_retries=MAX_RATE_FALLBACK_DAYS)
 
 
 def calculate_payload(payload):
@@ -520,17 +523,28 @@ def main():
     if "rates" not in st.session_state:
         st.session_state.rates = {"usd": 0.0, "eur": 0.0, "chf": 0.0, "date": ""}
 
+    today = date.today()
+    min_calc_date = today - timedelta(days=MAX_HISTORY_DAYS)
+    calculation_date = st.date_input(
+        "Hesaplama Tarihi",
+        value=today,
+        min_value=min_calc_date,
+        max_value=today,
+        format="DD.MM.YYYY",
+    )
+    st.caption("Kur cekimi secilen Hesaplama Tarihi'ne gore yapilir. Geriye donuk en fazla 1 yil secilebilir.")
+
     top_left, top_right = st.columns([2, 1])
     with top_left:
         st.write(f"Kayit limiti: **{MAX_RECORDS}**")
     with top_right:
-        if st.button("Bugunun Kurlarini Getir", width="stretch"):
-            rates = fetch_today_rates()
+        if st.button("Secilen Tarih Kurlarini Getir", width="stretch"):
+            rates = fetch_rates_for_date(calculation_date)
             if rates:
                 st.session_state.rates = rates
                 st.success("Kurlar guncellendi.")
             else:
-                st.error("Kurlar alinamadi.")
+                st.error("Secilen tarih icin kur alinamadi (tatil/hafta sonu icin son is gunu denenir).")
 
     rates = st.session_state.rates
 
@@ -542,7 +556,6 @@ def main():
             dealer_customer = st.text_input("Bayi Musteri")
             factory = st.selectbox("Sevk Fabrikasi", options=list(FACTORIES.keys()), format_func=lambda x: FACTORIES[x])
         with col2:
-            calculation_date = st.date_input("Hesaplama Tarihi", value=date.today(), format="DD.MM.YYYY")
             shipping_city = st.selectbox("Nakliye Sehri", options=CITIES, index=CITIES.index("Istanbul"))
             shipping_district = st.text_input("Ilce / Teslim Lokasyonu (opsiyonel)")
             nts_cost = st.number_input("NTS Maliyeti (TL/kg)", min_value=0.0, value=0.0, step=0.01)
@@ -552,9 +565,9 @@ def main():
             st.caption(f"Toplam Nakliye: {shipping_cost:.2f} TL/kg")
         with col3:
             margin_pct = st.slider("Hedeflenen Marj (%)", min_value=50, max_value=100, value=70)
-            usd_rate = st.number_input("USD Kur", min_value=0.0, value=float(rates.get("usd", 0.0)), step=0.0001, format="%.4f")
-            eur_rate = st.number_input("EUR Kur", min_value=0.0, value=float(rates.get("eur", 0.0)), step=0.0001, format="%.4f")
-            chf_rate = st.number_input("CHF Kur", min_value=0.0, value=float(rates.get("chf", 0.0)), step=0.0001, format="%.4f")
+            st.number_input("USD Kur", min_value=0.0, value=float(rates.get("usd", 0.0)), step=0.0001, format="%.4f", disabled=True)
+            st.number_input("EUR Kur", min_value=0.0, value=float(rates.get("eur", 0.0)), step=0.0001, format="%.4f", disabled=True)
+            st.number_input("CHF Kur", min_value=0.0, value=float(rates.get("chf", 0.0)), step=0.0001, format="%.4f", disabled=True)
             if rates.get("date"):
                 st.caption(f"TCMB tarih: {rates['date']}")
 
@@ -563,7 +576,7 @@ def main():
     if submitted:
         date_rates = fetch_rates_for_date(calculation_date)
         if not date_rates:
-            st.error("Secilen hesaplama tarihi icin TCMB kuru bulunamadi.")
+            st.error("Secilen hesaplama tarihi icin TCMB kuru bulunamadi. En fazla 1 yil geriye donuk tarih secilebilir.")
         else:
             st.session_state.rates = date_rates
             payload = {
